@@ -34,19 +34,20 @@ class Andale < EM::Connection
 
   # Wraps a SPDY reply by sending the headers packet and then the data
   # packet.
-  def reply stream_id, headers = nil
+  def reply stream, headers = nil
     raise ArgumentError if headers.nil? unless block_given?
 
     unless headers.nil?
       syn_reply = SynReply.new :zlib_session => @parser.zlib_session
 
-      data = { :stream_id => stream_id, :headers => headers }
+      data = { :stream_id => stream.stream_id, :headers => headers }
       send_data syn_reply.create(data).to_binary_s
     end
 
     if block_given?
       data = yield
-      send_data DataFrame.new.create(:stream_id => stream_id, :data => data).to_binary_s
+      frame_data = { :stream_id => stream.stream_id, :data => data }
+      send_data DataFrame.new.create(frame_data).to_binary_s
     end
   end
 
@@ -87,7 +88,7 @@ class Andale < EM::Connection
       # Always use HTTP/1.1
       headers["version"] = "HTTP/1.1"
 
-      @connection.reply(@stream_id, headers) { data }
+      @connection.reply(self, headers) { data }
     end
   end
 
