@@ -7,6 +7,7 @@ class Andale < EM::Connection
 
   # Aliases
   SynReply  = SPDY::Protocol::Control::SynReply
+  SynStream = SPDY::Protocol::Control::SynStream
   DataFrame = SPDY::Protocol::Data::Frame
 
   def post_init
@@ -49,6 +50,45 @@ class Andale < EM::Connection
       frame_data = { :stream_id => stream.stream_id, :data => data }
       send_data DataFrame.new.create(frame_data).to_binary_s
     end
+  end
+
+  # Server generated stream IDs
+  def next_stream_id
+    @response_stream_id ||= 0
+    @response_stream_id += 2
+  end
+
+  # Pushes content to the browsers cache
+  #
+  # stream  - request stream associated with this push
+  # headers - content headers
+  # content - content to be pushed
+  def push stream, headers, content
+    stream_id = next_stream_id
+
+    # Open a new stream from the server
+    syn_stream = SynStream.new :zlib_session => @parser.zlib_session
+    syn_stream.associated_to_stream_id = stream.stream_id
+
+    # Send headers
+    data = {
+      :flags     => 2, # UNIDIRECTIONAL
+      :stream_id => stream_id,
+      :headers   => headers
+    }
+
+    send_data syn_stream.create(data).to_binary_s
+
+    # Send contents
+    data = {
+      :stream_id => stream_id,
+      :data      => content
+    }
+
+    send_data DataFrame.new.create(data).to_binary_s
+
+    # Finalize stream
+    send_data DataFrame.new.create(:stream_id => stream_id, :flags => 1).to_binary_s
   end
 
   # Basic SPDY stream class
@@ -94,6 +134,22 @@ class Andale < EM::Connection
 
   # A wrapper on Andale::Stream to represent a SPDY response object
   class Response < Stream
+
+    # Pushes content to the browsers cache
+    #
+    # stream  - request stream associated with this push
+    # headers - content headers
+    # data    - content to be pushed
+    # url     - URL where this content will be cached
+    def push stream, headers, data, url
+      # Always use HTTP/1.1
+      headers["version"] = "HTTP/1.1"
+
+      # Parameter to ID pushed content in cache
+      headers["url"] = url
+
+      @connection.push stream, headers, data
+    end
   end
 
   # A wrapper on Andale::Stream to represent a SPDY request.
