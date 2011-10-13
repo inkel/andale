@@ -57,11 +57,13 @@ class Andale < EM::Connection
     # This constant flag should be in SPDY!
     DATA_FIN = 1
 
-    attr :stream_id, :connection
+    attr :stream_id, :connection, :associated_stream_id
 
-    def initialize connection, stream_id
+    def initialize connection, stream_id, options = {}
       @connection = connection
       @stream_id  = stream_id
+
+      @associated_stream_id = options[:associated_stream_id]
     end
 
     # Finalize stream
