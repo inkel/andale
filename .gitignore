@@ -1,0 +1,6 @@
+.rbx/
+tmp/
+log/
+*~
+*.bak
+*.rbc
