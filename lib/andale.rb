@@ -15,8 +15,8 @@ class Andale < EM::Connection
 
     @parser.on_headers_complete do |stream_id, assoc_stream, priority, headers|
       # TODO assoc_stream and priority
-      request  = Andale::Request.new self, stream_id, headers
-      response = Andale::Stream.new  self, stream_id
+      request  = Andale::Request.new  self, stream_id, headers
+      response = Andale::Response.new self, stream_id
 
       serve request, response
     end
